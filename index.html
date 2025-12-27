@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer Minimalis Coklat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap');
+        
+        body {
+            font-family: 'JetBrains+Mono', monospace;
+            background-color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4b2c20; /* Warna teks umum coklat tua */
+        }
+
+        .timer-display {
+            /* Ukuran diperkecil dari versi sebelumnya */
+            font-size: clamp(2.5rem, 10vw, 4.5rem);
+            color: #78350f; /* Warna coklat khas */
+            text-shadow: 1px 1px 2px rgba(120, 53, 15, 0.1);
+        }
+
+        .main-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .btn {
+            transition: all 0.2s ease;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #f3f4f6;
+            border-radius: 3px;
+            margin-top: 1.5rem;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: #92400e; /* Coklat medium untuk progres */
+            width: 0%;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-card text-center mx-4">
+        <h1 class="text-amber-800 text-xs tracking-[0.2em] uppercase mb-6 font-bold opacity-70">Timer Sesi Fokus</h1>
+        
+        <div class="timer-display font-bold mb-2" id="display">
+            00:00:00
+        </div>
+
+        <div class="progress-bar">
+            <div id="progress-fill"></div>
+        </div>
+
+        <p id="status-msg" class="text-gray-500 text-xs mt-4 mb-8 h-4 font-medium">Siap untuk memulai?</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button id="startBtn" class="btn bg-amber-800 hover:bg-amber-900 text-white py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2">
+                Mulai
+            </button>
+            
+            <button id="pauseBtn" class="btn bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2" disabled>
+                Jeda
+            </button>
+
+            <button id="resetBtn" class="btn border border-red-100 hover:bg-red-50 text-red-500 py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2">
+                Akhiri
+            </button>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center text-[9px] text-gray-400 uppercase tracking-widest font-bold">
+            <span>Interval Bip: 3m</span>
+            <span>Target: 60m</span>
+        </div>
+    </div>
+
+    <script>
+        let timeElapsed = 0;
+        const targetDuration = 3600;
+        let timerInterval = null;
+        let isRunning = false;
+
+        const display = document.getElementById('display');
+        const progressFill = document.getElementById('progress-fill');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusMsg = document.getElementById('status-msg');
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playBeep() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.4);
+            
+            statusMsg.textContent = "BIP! Kelipatan 3 menit tercapai.";
+            statusMsg.classList.add('text-amber-700');
+            setTimeout(() => { 
+                if(isRunning) {
+                    statusMsg.textContent = "Timer sedang berjalan...";
+                    statusMsg.classList.remove('text-amber-700');
+                }
+            }, 3000);
+        }
+
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
+        }
+
+        function updateUI() {
+            display.textContent = formatTime(timeElapsed);
+            const percentage = (timeElapsed / targetDuration) * 100;
+            progressFill.style.width = Math.min(percentage, 100) + "%";
+            
+            if (timeElapsed >= targetDuration) {
+                display.style.color = "#1e40af"; // Berubah biru saat selesai
+                progressFill.style.backgroundColor = "#1e40af";
+            } else {
+                display.style.color = "#78350f"; // Coklat
+                progressFill.style.backgroundColor = "#92400e";
+            }
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            if (timeElapsed >= targetDuration) {
+                statusMsg.textContent = "Target 1 jam selesai.";
+                return;
+            }
+            
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            isRunning = true;
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50');
+            pauseBtn.disabled = false;
+            statusMsg.textContent = "Timer sedang berjalan...";
+            
+            timerInterval = setInterval(() => {
+                if (timeElapsed < targetDuration) {
+                    timeElapsed++;
+                    updateUI();
+
+                    if (timeElapsed > 0 && timeElapsed % 180 === 0) {
+                        playBeep();
+                    }
+                } else {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    statusMsg.textContent = "Selesai!";
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50');
+                    pauseBtn.disabled = true;
+                    playBeep(); 
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50');
+            pauseBtn.disabled = true;
+            statusMsg.textContent = "Timer dijeda.";
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            timeElapsed = 0;
+            updateUI();
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50');
+            pauseBtn.disabled = true;
+            statusMsg.textContent = "Siap untuk memulai kembali?";
+        }
+
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        updateUI();
+    </script>
+</body>
+</html>
