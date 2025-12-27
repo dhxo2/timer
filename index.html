@@ -15,13 +15,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #4b2c20; /* Warna teks umum coklat tua */
+            color: #4b2c20; 
         }
 
         .timer-display {
-            /* Ukuran diperkecil dari versi sebelumnya */
             font-size: clamp(2.5rem, 10vw, 4.5rem);
-            color: #78350f; /* Warna coklat khas */
+            color: #78350f; 
             text-shadow: 1px 1px 2px rgba(120, 53, 15, 0.1);
         }
 
@@ -54,7 +53,7 @@
 
         #progress-fill {
             height: 100%;
-            background: #92400e; /* Coklat medium untuk progres */
+            background: #92400e; 
             width: 0%;
             transition: width 1s linear;
         }
@@ -110,7 +109,8 @@
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        function playBeep() {
+        // Fungsi untuk membuat nada tunggal "bib"
+        function createBib(startTime) {
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -118,21 +118,33 @@
             gainNode.connect(audioCtx.destination);
 
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
+            oscillator.frequency.setValueAtTime(900, startTime); 
             
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            // Volume lebih kencang (0.5)
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
 
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.4);
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.2);
+        }
+
+        // Fungsi untuk bunyi "bib bib bib"
+        function playTripleBeep() {
+            const now = audioCtx.currentTime;
             
-            statusMsg.textContent = "BIP! Kelipatan 3 menit tercapai.";
-            statusMsg.classList.add('text-amber-700');
+            // Mainkan 3 bunyi dengan jeda singkat
+            createBib(now);
+            createBib(now + 0.25);
+            createBib(now + 0.5);
+            
+            statusMsg.textContent = "BIB! BIB! BIB! Interval 3 menit.";
+            statusMsg.classList.add('text-amber-700', 'font-bold');
+            
             setTimeout(() => { 
                 if(isRunning) {
                     statusMsg.textContent = "Timer sedang berjalan...";
-                    statusMsg.classList.remove('text-amber-700');
+                    statusMsg.classList.remove('text-amber-700', 'font-bold');
                 }
             }, 3000);
         }
@@ -150,10 +162,10 @@
             progressFill.style.width = Math.min(percentage, 100) + "%";
             
             if (timeElapsed >= targetDuration) {
-                display.style.color = "#1e40af"; // Berubah biru saat selesai
+                display.style.color = "#1e40af"; 
                 progressFill.style.backgroundColor = "#1e40af";
             } else {
-                display.style.color = "#78350f"; // Coklat
+                display.style.color = "#78350f"; 
                 progressFill.style.backgroundColor = "#92400e";
             }
         }
@@ -180,8 +192,9 @@
                     timeElapsed++;
                     updateUI();
 
+                    // Bunyi setiap 3 menit (180 detik)
                     if (timeElapsed > 0 && timeElapsed % 180 === 0) {
-                        playBeep();
+                        playTripleBeep();
                     }
                 } else {
                     clearInterval(timerInterval);
@@ -190,7 +203,7 @@
                     startBtn.disabled = false;
                     startBtn.classList.remove('opacity-50');
                     pauseBtn.disabled = true;
-                    playBeep(); 
+                    playTripleBeep(); 
                 }
             }, 1000);
         }
