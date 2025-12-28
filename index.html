@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timer Minimalis Coklat</title>
+    <title>Timer Minimalis Custom</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap');
@@ -22,24 +22,41 @@
             font-size: clamp(2.5rem, 10vw, 4.5rem);
             color: #78350f; 
             text-shadow: 1px 1px 2px rgba(120, 53, 15, 0.1);
+            transition: all 0.5s ease;
         }
 
         .main-card {
             background: #ffffff;
             border: 1px solid #e5e7eb;
             border-radius: 1.5rem;
-            padding: 2.5rem;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            padding: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 450px;
+            max-width: 480px;
         }
 
-        .btn {
-            transition: all 0.2s ease;
+        /* Animasi Timbul & Klik */
+        .option-btn, .btn {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
-        .btn:active {
-            transform: scale(0.96);
+        .option-btn:hover, .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(120, 53, 15, 0.15);
+        }
+
+        .option-btn:active, .btn:active:not(:disabled) {
+            transform: translateY(1px) scale(0.94);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .option-btn {
+            @apply border border-gray-200 rounded-lg py-2 px-3 text-sm font-medium;
+        }
+
+        .option-btn.active {
+            @apply bg-amber-800 text-white border-amber-800;
+            box-shadow: 0 4px 10px rgba(120, 53, 15, 0.2);
         }
 
         .progress-bar {
@@ -57,16 +74,56 @@
             width: 0%;
             transition: width 1s linear;
         }
+
+        .hidden { display: none; }
+
+        /* Efek Transisi Layar */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
-    <div class="main-card text-center mx-4">
+    <!-- LAYAR PERTAMA: PENGATURAN -->
+    <div id="setup-screen" class="main-card text-center mx-4 fade-in">
+        <h1 class="text-amber-800 text-sm tracking-[0.2em] uppercase mb-8 font-bold">Pengaturan Timer</h1>
+        
+        <div class="mb-6 text-left">
+            <label class="text-[10px] uppercase tracking-widest text-gray-400 font-bold block mb-3">Durasi Target</label>
+            <div class="grid grid-cols-3 gap-2" id="duration-options">
+                <button class="option-btn" data-value="1200">20 Menit</button>
+                <button class="option-btn active" data-value="3600">60 Menit</button>
+                <button class="option-btn" data-value="5400">90 Menit</button>
+            </div>
+        </div>
+
+        <div class="mb-8 text-left">
+            <label class="text-[10px] uppercase tracking-widest text-gray-400 font-bold block mb-3">Interval Bunyi "Bib"</label>
+            <div class="grid grid-cols-3 sm:grid-cols-5 gap-2" id="interval-options">
+                <button class="option-btn" data-value="60">1m</button>
+                <button class="option-btn active" data-value="180">3m</button>
+                <button class="option-btn" data-value="300">5m</button>
+                <button class="option-btn" data-value="600">10m</button>
+                <button class="option-btn" data-value="900">15m</button>
+            </div>
+        </div>
+
+        <button id="go-to-timer" class="btn w-full bg-amber-800 hover:bg-amber-900 text-white py-4 rounded-xl font-bold text-sm tracking-widest uppercase">
+            Konfirmasi
+        </button>
+    </div>
+
+    <!-- LAYAR KEDUA: TIMER -->
+    <div id="timer-screen" class="main-card text-center mx-4 hidden">
         <h1 class="text-amber-800 text-xs tracking-[0.2em] uppercase mb-6 font-bold opacity-70">Timer Sesi Fokus</h1>
         
-        <div class="timer-display font-bold mb-2" id="display">
-            00:00:00
-        </div>
+        <div class="timer-display font-bold mb-2" id="display">00:00:00</div>
 
         <div class="progress-bar">
             <div id="progress-fill"></div>
@@ -84,63 +141,86 @@
             </button>
 
             <button id="resetBtn" class="btn border border-red-100 hover:bg-red-50 text-red-500 py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2">
-                Akhiri
+                Kembali
             </button>
         </div>
 
         <div class="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center text-[9px] text-gray-400 uppercase tracking-widest font-bold">
-            <span>Interval Bip: 3m</span>
-            <span>Target: 60m</span>
+            <span id="info-interval">Interval: 3m</span>
+            <span id="info-target">Target: 60m</span>
         </div>
     </div>
 
     <script>
+        // State Management
         let timeElapsed = 0;
-        const targetDuration = 3600;
+        let targetDuration = 3600;
+        let beepInterval = 180;
         let timerInterval = null;
         let isRunning = false;
 
+        // DOM Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const timerScreen = document.getElementById('timer-screen');
+        const durationBtns = document.querySelectorAll('#duration-options .option-btn');
+        const intervalBtns = document.querySelectorAll('#interval-options .option-btn');
+        const goToTimerBtn = document.getElementById('go-to-timer');
         const display = document.getElementById('display');
         const progressFill = document.getElementById('progress-fill');
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const resetBtn = document.getElementById('resetBtn');
         const statusMsg = document.getElementById('status-msg');
+        const infoInterval = document.getElementById('info-interval');
+        const infoTarget = document.getElementById('info-target');
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Fungsi untuk membuat nada tunggal "bib"
+
+        // Setup Selection Logic
+        function setupButtons(buttons, callback) {
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    callback(parseInt(btn.getAttribute('data-value')));
+                });
+            });
+        }
+
+        setupButtons(durationBtns, (val) => targetDuration = val);
+        setupButtons(intervalBtns, (val) => beepInterval = val);
+
+        goToTimerBtn.addEventListener('click', () => {
+            setupScreen.classList.add('hidden');
+            timerScreen.classList.remove('hidden');
+            timerScreen.classList.add('fade-in');
+            infoInterval.textContent = `Interval: ${beepInterval / 60}m`;
+            infoTarget.textContent = `Target: ${targetDuration / 60}m`;
+            resetTimer();
+        });
+
+        // Sound Logic
         function createBib(startTime) {
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(900, startTime); 
-            
-            // Volume lebih kencang (0.5)
             gainNode.gain.setValueAtTime(0, startTime);
             gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
             gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
-
             oscillator.start(startTime);
             oscillator.stop(startTime + 0.2);
         }
 
-        // Fungsi untuk bunyi "bib bib bib"
         function playTripleBeep() {
             const now = audioCtx.currentTime;
-            
-            // Mainkan 3 bunyi dengan jeda singkat
             createBib(now);
             createBib(now + 0.25);
             createBib(now + 0.5);
-            
-            statusMsg.textContent = "BIB! BIB! BIB! Interval 3 menit.";
+            statusMsg.textContent = "BIB! BIB! BIB!";
             statusMsg.classList.add('text-amber-700', 'font-bold');
-            
             setTimeout(() => { 
                 if(isRunning) {
                     statusMsg.textContent = "Timer sedang berjalan...";
@@ -172,14 +252,9 @@
 
         function startTimer() {
             if (isRunning) return;
-            if (timeElapsed >= targetDuration) {
-                statusMsg.textContent = "Target 1 jam selesai.";
-                return;
-            }
+            if (timeElapsed >= targetDuration) return;
             
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
 
             isRunning = true;
             startBtn.disabled = true;
@@ -191,15 +266,13 @@
                 if (timeElapsed < targetDuration) {
                     timeElapsed++;
                     updateUI();
-
-                    // Bunyi setiap 3 menit (180 detik)
-                    if (timeElapsed > 0 && timeElapsed % 180 === 0) {
+                    if (timeElapsed > 0 && timeElapsed % beepInterval === 0) {
                         playTripleBeep();
                     }
                 } else {
                     clearInterval(timerInterval);
                     isRunning = false;
-                    statusMsg.textContent = "Selesai!";
+                    statusMsg.textContent = "Target Tercapai!";
                     startBtn.disabled = false;
                     startBtn.classList.remove('opacity-50');
                     pauseBtn.disabled = true;
@@ -225,12 +298,23 @@
             startBtn.disabled = false;
             startBtn.classList.remove('opacity-50');
             pauseBtn.disabled = true;
-            statusMsg.textContent = "Siap untuk memulai kembali?";
+            statusMsg.textContent = "Siap?";
         }
+
+        resetBtn.addEventListener('click', () => {
+            if (isRunning || timeElapsed > 0) {
+                // Custom confirm simple style
+                if (!confirm("Hentikan timer dan kembali ke pengaturan?")) return;
+            }
+            clearInterval(timerInterval);
+            isRunning = false;
+            setupScreen.classList.remove('hidden');
+            setupScreen.classList.add('fade-in');
+            timerScreen.classList.add('hidden');
+        });
 
         startBtn.addEventListener('click', startTimer);
         pauseBtn.addEventListener('click', pauseTimer);
-        resetBtn.addEventListener('click', resetTimer);
 
         updateUI();
     </script>
